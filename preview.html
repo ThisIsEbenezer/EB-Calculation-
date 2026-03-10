@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>TNEB Electricity Share Calculator</title>
+
+<style>
+body{
+font-family: Arial;
+background:#f4f4f4;
+padding:20px;
+}
+
+.container{
+background:white;
+padding:20px;
+max-width:900px;
+margin:auto;
+border-radius:8px;
+box-shadow:0 0 10px rgba(0,0,0,0.1);
+}
+
+h2{
+text-align:center;
+}
+
+input{
+padding:8px;
+margin:5px;
+width:120px;
+}
+
+button{
+padding:10px 15px;
+background:#2b7cff;
+color:white;
+border:none;
+border-radius:5px;
+cursor:pointer;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+margin-top:20px;
+}
+
+th,td{
+border:1px solid #ddd;
+padding:10px;
+text-align:center;
+}
+
+th{
+background:#eee;
+}
+
+.result{
+margin-top:20px;
+font-size:18px;
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>TNEB Electricity Bill Share Calculator</h2>
+
+<p>Tariff (Tamil Nadu Domestic)</p>
+
+<ul>
+<li>0-100 Units : Free</li>
+<li>101-200 : ₹2.35</li>
+<li>201-400 : ₹4.70</li>
+<li>401-500 : ₹6.30</li>
+<li>501-600 : ₹8.40</li>
+<li>601-800 : ₹9.45</li>
+<li>801-1000 : ₹10.50</li>
+<li>Above 1000 : ₹11.55</li>
+</ul>
+
+<h3>Enter Units</h3>
+
+Occupant 1:
+<input type="number" id="u1" value="37"><br>
+
+Occupant 2:
+<input type="number" id="u2" value="100"><br>
+
+Occupant 3:
+<input type="number" id="u3" value="135.4"><br>
+
+<br>
+
+<button onclick="calculate()">Calculate Bill</button>
+
+<div id="output"></div>
+
+</div>
+
+<script>
+
+function calculateTotalBill(units){
+
+let bill = 0;
+
+if(units > 100){
+let slab = Math.min(units - 100 ,100);
+bill += slab * 2.35;
+}
+
+if(units > 200){
+let slab = Math.min(units - 200 ,200);
+bill += slab * 4.70;
+}
+
+if(units > 400){
+let slab = Math.min(units - 400 ,100);
+bill += slab * 6.30;
+}
+
+if(units > 500){
+let slab = Math.min(units - 500 ,100);
+bill += slab * 8.40;
+}
+
+if(units > 600){
+let slab = Math.min(units - 600 ,200);
+bill += slab * 9.45;
+}
+
+if(units > 800){
+let slab = Math.min(units - 800 ,200);
+bill += slab * 10.50;
+}
+
+if(units > 1000){
+let slab = units - 1000;
+bill += slab * 11.55;
+}
+
+return bill;
+}
+
+function calculate(){
+
+let u1 = parseFloat(document.getElementById("u1").value);
+let u2 = parseFloat(document.getElementById("u2").value);
+let u3 = parseFloat(document.getElementById("u3").value);
+
+let totalUnits = u1 + u2 + u3;
+
+let totalBill = calculateTotalBill(totalUnits);
+
+let share1 = (u1/totalUnits) * totalBill;
+let share2 = (u2/totalUnits) * totalBill;
+let share3 = (u3/totalUnits) * totalBill;
+
+let html = `
+<table>
+<tr>
+<th>Occupant</th>
+<th>Units Used</th>
+<th>Amount (₹)</th>
+</tr>
+
+<tr>
+<td>1</td>
+<td>${u1}</td>
+<td>₹${share1.toFixed(2)}</td>
+</tr>
+
+<tr>
+<td>2</td>
+<td>${u2}</td>
+<td>₹${share2.toFixed(2)}</td>
+</tr>
+
+<tr>
+<td>3</td>
+<td>${u3}</td>
+<td>₹${share3.toFixed(2)}</td>
+</tr>
+
+</table>
+
+<div class="result">
+Total Units : ${totalUnits}<br>
+Total EB Bill : ₹${totalBill.toFixed(2)}
+</div>
+`;
+
+document.getElementById("output").innerHTML = html;
+
+}
+
+</script>
+
+</body>
+</html>

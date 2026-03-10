@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TN EB Bill Calculator - 3 Occupants (Proportional Slab Allocation with Formula)</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; }
+  input[type="number"] { width: 80px; margin-bottom: 5px; }
+  table { border-collapse: collapse; margin-top: 10px; width: 100%; }
+  th, td { border: 1px solid #999; padding: 8px 12px; text-align: center; }
+  th { background: #f0f0f0; }
+  .subtable { margin-top: 10px; margin-bottom: 20px; }
+  .subtable th, .subtable td { border: 1px solid #ccc; padding: 5px 8px; }
+  .step { text-align: left; margin: 5px 0; }
+</style>
+</head>
+<body>
+<h2>Tamil Nadu EB Bill Calculator (3 Occupants - Full Proportional Allocation)</h2>
+
+<label>Occupant 1 Units:</label>
+<input type="number" id="occ1" value="100"><br>
+<label>Occupant 2 Units:</label>
+<input type="number" id="occ2" value="37"><br>
+<label>Occupant 3 Units:</label>
+<input type="number" id="occ3" value="135.4"><br>
+<label>Total Free Units (100)</label><br><br>
+
+<button onclick="calculateBill()">Calculate Bill</button>
+<div id="result"></div>
+
+<script>
+const slabs = [
+  { limit: 100, rate: 2.35 },
+  { limit: 200, rate: 4.70 },
+  { limit: 400, rate: 6.30 },
+  { limit: 500, rate: 8.40 },
+  { limit: 600, rate: 9.45 },
+  { limit: 800, rate: 10.50 },
+  { limit: 1000, rate: 11.55 },
+  { limit: Infinity, rate: 12.50 }
+];
+
+function calculateBill() {
+  const occUnits = [
+    parseFloat(document.getElementById('occ1').value) || 0,
+    parseFloat(document.getElementById('occ2').value) || 0,
+    parseFloat(document.getElementById('occ3').value) || 0
+  ];
+
+  const totalUnitsUsed = occUnits.reduce((a,b)=>a+b,0);
+  const freeUnits = 100;
+  const freePerOccupant = freeUnits / 3;
+
+  let chargeUnits = occUnits.map(u => Math.max(0, u - freePerOccupant));
+  let amounts = [0,0,0];
+  let details = [[],[],[]];
+
+  let prevLimit = 0;
+
+  for(const slab of slabs){
+    let slabSize = slab.limit - prevLimit;
+    let totalCU = chargeUnits.reduce((a,b)=>a+b,0);
+    let slabTotal = Math.min(slabSize, totalCU);
+
+    if(slabTotal <= 0) break;
+
+    let remainingSlab = slabTotal;
+    let unitProportion = chargeUnits.map(u => totalCU > 0 ? u / totalCU : 0);
+
+    for(let i=0;i<3;i++){
+      let alloc = Math.min(chargeUnits[i], slabTotal * unitProportion[i]);
+      amounts[i] += alloc * slab.rate;
+      chargeUnits[i] -= alloc;
+      remainingSlab -= alloc;
+      if(alloc > 0) details[i].push({
+        units: alloc,
+        rate: slab.rate,
+        slabSize: slabSize,
+        amount: alloc*slab.rate,
+        proportion: unitProportion[i],
+        proportionExplanation: `Proportion of Slab (%) = (Allocated Units / Slab Total Units) × 100 = (${alloc.toFixed(2)} / ${slabTotal.toFixed(2)}) × 100 ≈ ${(alloc/slabTotal*100).toFixed(2)}%`
+      });
+    }
+
+    while(remainingSlab > 0.0001){
+      let active = chargeUnits.map((u,i)=>u>0?i:-1).filter(i=>i!=-1);
+      if(active.length == 0) break;
+      let totalActive = active.reduce((sum,i)=>sum+chargeUnits[i],0);
+      active.forEach(i=>{
+        let alloc = Math.min(chargeUnits[i], remainingSlab * (chargeUnits[i]/totalActive));
+        amounts[i] += alloc * slab.rate;
+        chargeUnits[i] -= alloc;
+        remainingSlab -= alloc;
+        if(alloc > 0) details[i].push({
+          units: alloc,
+          rate: slab.rate,
+          slabSize: slabSize,
+          amount: alloc*slab.rate,
+          proportion: alloc/slabTotal,
+          proportionExplanation: `Proportion of Slab (%) = (Allocated Units / Slab Total Units) × 100 = (${alloc.toFixed(2)} / ${slabTotal.toFixed(2)}) × 100 ≈ ${(alloc/slabTotal*100).toFixed(2)}%`
+        });
+      });
+    }
+
+    prevLimit = slab.limit;
+  }
+
+  let html = `<p><strong>Total Units Used: ${totalUnitsUsed.toFixed(2)}</strong></p>`;
+  html += `<table><tr><th>Occupant</th><th>Used Units</th><th>Free Units</th><th>Chargeable Units</th><th>Bill (₹)</th></tr>`;
+  for(let i=0;i<3;i++){
+    html += `<tr>
+<td>Occupant ${i+1}</td>
+<td>${occUnits[i].toFixed(2)}</td>
+<td>${freePerOccupant.toFixed(2)}</td>
+<td>${(occUnits[i]-freePerOccupant).toFixed(2)}</td>
+<td>${amounts[i].toFixed(2)}</td>
+</tr>`;
+  }
+  html += `<tr><th colspan='4'>Total</th><th>${amounts.reduce((a,b)=>a+b,0).toFixed(2)}</th></tr></table>`;
+
+  for(let i=0;i<3;i++){
+    html += `<div class='subtable'>`;
+    html += `<h4>Occupant ${i+1} Full Proportional Slab Allocation & Calculation</h4>`;
+    html += `<div class='step'>Step 1: Chargeable Units = Used Units - Free Units = ${occUnits[i].toFixed(2)} - ${freePerOccupant.toFixed(2)} = ${(occUnits[i]-freePerOccupant).toFixed(2)}</div>`;
+    html += `<table><tr><th>Slab Max Units</th><th>Allocated Units</th><th>Proportion of Slab (%)</th><th>Rate (₹)</th><th>Amount (₹)</th><th>Proportion Calculation Formula</th><th>Explanation</th></tr>`;
+    details[i].forEach((d, idx)=>{
+      html += `<tr>
+<td>${d.slabSize}</td>
+<td>${d.units.toFixed(2)}</td>
+<td>${(d.proportion*100).toFixed(2)}%</td>
+<td>${d.rate.toFixed(2)}</td>
+<td>${d.amount.toFixed(2)}</td>
+<td>${d.proportionExplanation}</td>
+<td>${d.units.toFixed(2)} units × ₹${d.rate.toFixed(2)} = ₹${d.amount.toFixed(2)}</td>
+</tr>`;
+    });
+    html += `<tr><td colspan='6'><strong>Total Bill for Occupant ${i+1}</strong></td><td>₹${amounts[i].toFixed(2)}</td></tr>`;
+    html += `</table></div>`;
+  }
+
+  document.getElementById('result').innerHTML = html;
+}
+</script>
+</body>
+</html>
