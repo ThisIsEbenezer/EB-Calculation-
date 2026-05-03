@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>EB Split Calculator</title>
+<style>
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: Arial, sans-serif;
+  background: #f0f2f5;
+  padding: 10px;
+  font-size: 14px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+h2 {
+  font-size: 18px;
+  margin: 10px 0 6px;
+  color: #222;
+}
+
+.card {
+  background: white;
+  padding: 12px;
+  border-radius: 10px;
+  margin-top: 10px;
+  border: 1px solid #ddd;
+  overflow: hidden;
+}
+
+.card > b {
+  font-size: 14px;
+  display: block;
+  margin-bottom: 6px;
+  color: #111;
+}
+
+label {
+  font-size: 13px;
+  color: #555;
+  margin-top: 10px;
+  display: block;
+}
+
+label:first-child { margin-top: 0; }
+
+input[type=number] {
+  width: 100%;
+  padding: 10px;
+  margin-top: 4px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+button {
+  width: 100%;
+  padding: 12px;
+  margin-top: 12px;
+  font-size: 16px;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  letter-spacing: 0.3px;
+}
+
+button:active { background: #1d4ed8; }
+
+/* THE key fix: wrap every table so it scrolls horizontally within the card */
+.tbl-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 8px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  /* min-width keeps columns readable on very narrow phones */
+  min-width: 300px;
+}
+
+th, td {
+  border: 1px solid #e0e0e0;
+  padding: 6px 8px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+th {
+  background: #f4f4f4;
+  font-size: 11px;
+  color: #555;
+  font-weight: bold;
+}
+
+tr:nth-child(even) td { background: #fafafa; }
+tr.total td { font-weight: bold; background: #eef2ff; }
+
+.step {
+  font-size: 12px;
+  color: #444;
+  margin-top: 7px;
+  line-height: 1.6;
+}
+
+.small {
+  font-size: 11px;
+  color: #888;
+  margin-top: 5px;
+  line-height: 1.5;
+}
+
+.occ-block {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #ddd;
+}
+
+.occ-block:first-of-type {
+  border-top: none;
+  padding-top: 4px;
+  margin-top: 4px;
+}
+
+.occ-title {
+  font-size: 13px;
+  font-weight: bold;
+  color: #1d4ed8;
+  margin-bottom: 4px;
+}
+
+</style>
+</head>
+<body>
+
+<h2>⚡ EB Bill Split</h2>
+
+<div class="card">
+  <label>Occupant 1 Units</label>
+  <input type="number" id="o1" placeholder="Enter units" inputmode="decimal">
+
+  <label>Occupant 2 Units</label>
+  <input type="number" id="o2" placeholder="Enter units" inputmode="decimal">
+
+  <label>Occupant 3 Units</label>
+  <input type="number" id="o3" placeholder="Enter units" inputmode="decimal">
+
+  <button onclick="calc()">Calculate</button>
+</div>
+
+<div id="out"></div>
+
+<script>
+
+const slabs = [
+  {limit:100,      rate:0},
+  {limit:200,      rate:2.35},
+  {limit:400,      rate:4.70},
+  {limit:500,      rate:6.30},
+  {limit:600,      rate:8.40},
+  {limit:800,      rate:9.45},
+  {limit:1000,     rate:10.50},
+  {limit:Infinity, rate:11.55}
+];
+
+const f = n => (+n).toFixed(2);
+
+function calcBill(units) {
+  let remaining = units, prev = 0, bill = 0, rows = [];
+  for (let s of slabs) {
+    let su = Math.min(remaining, s.limit - prev);
+    if (su <= 0) break;
+    let amt = su * s.rate;
+    bill += amt;
+    rows.push({ from: prev, to: s.limit, units: su, rate: s.rate, amt });
+    remaining -= su;
+    prev = s.limit;
+  }
+  return { bill, rows };
+}
+
+function tbl(headers, rows, footerRow) {
+  let html = `<div class="tbl-wrap"><table>`;
+  html += `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
+  for (let r of rows) html += `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`;
+  if (footerRow) html += `<tr class="total">${footerRow.map(c => `<td>${c}</td>`).join('')}</tr>`;
+  return html + `</table></div>`;
+}
+
+function calc() {
+  let u = [+o1.value||0, +o2.value||0, +o3.value||0];
+  let total = u.reduce((a,b) => a+b, 0);
+  if (!total) { out.innerHTML = "<div class='card'>Please enter units.</div>"; return; }
+
+  let html = "";
+
+  /* STEP 1 */
+  html += `<div class="card">
+<b>Step 1: Total Units</b>
+<div class="step">${u[0]} + ${u[1]} + ${u[2]} = <b>${f(total)} units</b></div>
+</div>`;
+
+  /* STEP 2 — Combined slab */
+  let { bill: totalBill, rows: totalRows } = calcBill(total);
+
+  html += `<div class="card">
+<b>Step 2: EB Slab Calculation (Combined)</b>`;
+  html += tbl(
+    ['Slab', 'Units', 'Rate', 'Calc', 'Amount'],
+    totalRows.map(r => [
+      `${r.from+1}–${r.to===Infinity?'∞':r.to}`,
+      f(r.units), r.rate,
+      `${f(r.units)}×${r.rate}`,
+      `₹${f(r.amt)}`
+    ]),
+    ['Total', f(total), '', '', `₹${f(totalBill)}`]
+  );
+  html += `<div class="step">Total EB Bill = <b>₹${f(totalBill)}</b></div></div>`;
+
+  /* STEP 3 — Free & Chargeable */
+  let freeEach = 100 / 3;
+  let charge = u.map(x => Math.max(0, x - freeEach));
+  let totalCharge = charge.reduce((a,b) => a+b, 0);
+
+  html += `<div class="card">
+<b>Step 3: Free &amp; Chargeable Units</b>`;
+  html += tbl(
+    ['Occ', 'Used', 'Free', 'Chargeable', 'Formula'],
+    u.map((x,i) => [i+1, x, f(freeEach), f(charge[i]), `${x}−${f(freeEach)}`]),
+    ['Total', f(total), f(100), f(totalCharge), '']
+  );
+  html += `<div class="step">Total Chargeable = ${charge.map(f).join(' + ')} = <b>${f(totalCharge)}</b></div></div>`;
+
+  /* STEP 4 — Share % */
+  let percent = charge.map(x => totalCharge ? x / totalCharge : 0);
+
+  html += `<div class="card">
+<b>Step 4: Share Percentage</b>`;
+  html += tbl(
+    ['Occ', 'Chargeable', 'Calculation', 'Share %'],
+    charge.map((c,i) => [i+1, f(c), `${f(c)} ÷ ${f(totalCharge)}`, `${f(percent[i]*100)}%`]),
+    ['Total', f(totalCharge), '', '100%']
+  );
+  html += `</div>`;
+
+  /* STEP 5 — Per-Occupant Slab Breakdown */
+  let amounts = [0,0,0];
+  let unitsAllocated = [0,0,0];
+
+  html += `<div class="card">
+<b>Step 5: Per-Occupant Slab Breakdown</b>
+<div class="small">Alloc Units = Slab Units × Share% &nbsp;·&nbsp; Amount = Alloc Units × Rate</div>`;
+
+  for (let i = 0; i < 3; i++) {
+    let p = percent[i];
+    let rem = Math.max(0, total - 100);
+    let prevLocal = 100;
+    let occRows = [];
+
+    for (let s of slabs) {
+      if (s.rate === 0) continue;
+      let su = Math.min(rem, s.limit - prevLocal);
+      if (su <= 0) break;
+      let alloc = su * p;
+      let amt = alloc * s.rate;
+      amounts[i] += amt;
+      unitsAllocated[i] += alloc;
+      occRows.push([
+        `${prevLocal+1}–${f(prevLocal+su)}`,
+        f(su),
+        `${f(su)}×${f(p*100)}%`,
+        `${f(alloc)}u`,
+        `₹${s.rate}`,
+        `₹${f(amt)}`
+      ]);
+      rem -= su;
+      prevLocal = s.limit;
+    }
+
+    html += `<div class="occ-block">
+<div class="occ-title">Occupant ${i+1} &nbsp;(${f(p*100)}%)</div>`;
+    html += tbl(
+      ['Slab', 'Slab U', 'Calc', 'Alloc U', 'Rate', 'Amt'],
+      occRows,
+      ['Total', '', '', `${f(unitsAllocated[i])}u`, '', `₹${f(amounts[i])}`]
+    );
+    html += `</div>`;
+  }
+
+  html += `</div>`;
+
+  /* STEP 6 — Final Bill Split */
+  let finalAmounts = percent.map(p => p * totalBill);
+
+  html += `<div class="card">
+<b>Step 6: Final Bill Split</b>`;
+  html += tbl(
+    ['Occ', 'Used', 'Chargeable', 'Share %', 'Amount'],
+    u.map((x,i) => [i+1, x, f(charge[i]), `${f(percent[i]*100)}%`, `₹${f(finalAmounts[i])}`]),
+    ['Total', f(total), f(totalCharge), '100%', `₹${f(totalBill)}`]
+  );
+  html += `</div>`;
+
+  out.innerHTML = html;
+}
+
+</script>
+</body>
+</html>
